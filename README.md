@@ -10,7 +10,17 @@ Open `index.html` in a browser, or serve the folder:
 npx http-server -p 8080 .   # then open http://localhost:8080
 ```
 
-The menu runs a live 4-CPU battle in the background. Pick fighters for up to 4 slots (Player 1, Player 2, or CPU), set the rules, and press **Fight!**
+The menu runs a live 4-CPU battle in the background. Pick fighters for up to 6 slots (Player 1, Player 2, or CPU), set the rules, and press **Fight!**
+
+## Customization
+
+Press **Style** on any lineup slot to open its customizer:
+
+- **Name:** up to 14 characters. It's shown on the fighter's name tag, the HUD card, and the results screen.
+- **Hat:** top hat, cap, cowboy hat, crown, viking helmet, party hat, wizard hat, headband, or halo.
+- **Accessory:** shades, mustache, beard, eye patch, monocle, bow tie, or a cape with rope physics.
+
+Hats pop off and tumble away when a fighter is K.O.'d. Your lineup and looks are saved in the browser.
 
 ## Controls
 

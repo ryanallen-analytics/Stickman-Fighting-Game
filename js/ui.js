@@ -11,14 +11,29 @@
   const TYPE_LABEL = { p1: 'Player 1', p2: 'Player 2', cpu: 'CPU', off: 'Empty' };
   const TYPE_HINT = { p1: 'WASD · J K L', p2: 'Arrows · , . /', cpu: 'Computer', off: 'Click to add' };
 
+  const newSlot = (type, char) => ({ type, char, name: '', hat: 'none', acc: 'none' });
   const state = {
-    slots: [{ type: 'p1', char: 0 }, { type: 'cpu', char: 1 }, { type: 'off', char: 2 }, { type: 'off', char: 5 }],
+    slots: [newSlot('p1', 0), newSlot('cpu', 1), newSlot('off', 2), newSlot('off', 5), newSlot('off', 3), newSlot('off', 6)],
     active: 0, stocks: 3, level: 'normal', stage: 'random', items: true,
   };
+  const validHat = (id) => HATS.some((h) => h.id === id), validAcc = (id) => ACCESSORIES.some((a) => a.id === id);
   try {
     const saved = JSON.parse(localStorage.getItem('stickclash.setup') || 'null');
-    if (saved && Array.isArray(saved.slots) && saved.slots.length === 4) Object.assign(state, saved, { active: 0 });
+    if (saved && Array.isArray(saved.slots)) {
+      // Older saves had 4 slots and no looks; merge whatever is valid onto the defaults.
+      saved.slots.slice(0, MAX_FIGHTERS).forEach((o, i) => {
+        const d = state.slots[i];
+        if (SLOT_TYPES.includes(o.type)) d.type = o.type;
+        if (Number.isInteger(o.char) && o.char >= -1 && o.char < CHARS.length) d.char = o.char;
+        if (typeof o.name === 'string') d.name = o.name.slice(0, NAME_MAX);
+        if (validHat(o.hat)) d.hat = o.hat;
+        if (validAcc(o.acc)) d.acc = o.acc;
+      });
+      for (const k of ['stocks', 'level', 'stage', 'items']) if (k in saved) state[k] = saved[k];
+    }
   } catch (e) { /* storage unavailable */ }
+  const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const lookOf = (s) => ({ hat: s.hat, acc: s.acc });
   const save = () => { try { localStorage.setItem('stickclash.setup', JSON.stringify(state)); } catch (e) { /* ignore */ } };
 
   let mode = 'menu';
@@ -67,6 +82,24 @@
             <p class="note">Hold a direction while attacking to change the move: neutral, side, up or down, on the ground or in the air. Up + Heavy is your recovery. Grab a bomb power-up, then neutral Light throws it. <kbd>Esc</kbd> pauses, <kbd>M</kbd> mutes.</p>
           </details>
         </section>
+      </div>
+    </div>
+  </div>
+  <div id="custom" class="overlay dim" hidden>
+    <div class="panel custom-panel" role="dialog" aria-modal="true" aria-labelledby="customTitle">
+      <h2 class="panel-title" id="customTitle">Customize</h2>
+      <div class="custom-grid">
+        <canvas id="customPreview" aria-hidden="true"></canvas>
+        <div class="custom-fields">
+          <label class="field" for="custName"><span>Name</span>
+            <input id="custName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false"></label>
+          <div class="field"><span>Hat</span><div class="chips" id="hatChips"></div></div>
+          <div class="field"><span>Accessory</span><div class="chips" id="accChips"></div></div>
+        </div>
+      </div>
+      <div class="btns">
+        <button type="button" class="btn" id="custRandom">Random look</button>
+        <button type="button" class="btn primary" id="custDone">Done</button>
       </div>
     </div>
   </div>
@@ -125,12 +158,12 @@
       const ctx = p.ctx;
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
       if (ci === -2) continue;
-      if (ci === -1) {
+      if (ci === -1 && !p.opts.preview) {
         ctx.fillStyle = INK; ctx.font = `${cv.height * 0.55}px "Permanent Marker", cursive`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', cv.width / 2, cv.height / 2);
         continue;
       }
-      const ch = CHARS[ci];
+      const ch = CHARS[ci < 0 ? 0 : ci];
       p.t += dt;
       const target = Object.assign({}, BASE_POSE, ch.hold);
       const b = Math.sin(p.t * 2.8);
@@ -148,7 +181,8 @@
       const sc = cv.height / 150;
       ctx.setTransform(sc, 0, 0, sc, 0, 0);
       const J = skel((150 * cv.width / cv.height) * 0.42, 138, 1, 1, p.pose);
-      drawFigure(ctx, J, ch, INK);
+      const slot = p.opts.slot !== undefined ? state.slots[p.opts.slot] : null;
+      drawFigure(ctx, J, ch, INK, slot ? { look: lookOf(slot), accent: PLAYER_COLORS[p.opts.slot] } : {});
     }
   }
 
@@ -176,8 +210,8 @@
     if (s.type === 'off') s.type = firstFreeType();
     s.char = ci;
     // Advance to the next filled slot so picking a whole lineup is quick.
-    for (let i = 1; i <= 4; i++) {
-      const j = (state.active + i) % 4;
+    for (let i = 1; i <= MAX_FIGHTERS; i++) {
+      const j = (state.active + i) % MAX_FIGHTERS;
       if (state.slots[j].type !== 'off') { if (j > state.active) state.active = j; break; }
     }
     save(); refresh();
@@ -224,7 +258,10 @@
     el.className = 'slot'; el.style.setProperty('--pc', PLAYER_COLORS[i]);
     el.innerHTML = `<button type="button" class="slot-main" id="slot-${i}"><canvas aria-hidden="true"></canvas>
         <span class="slot-txt"><span class="pill"></span><span class="slot-char"></span><span class="slot-hint"></span></span></button>
-      <button type="button" class="slot-type" id="slotType-${i}" title="Change who controls this slot"></button>`;
+      <div class="slot-actions">
+        <button type="button" class="slot-type" id="slotType-${i}" title="Change who controls this slot"></button>
+        <button type="button" class="slot-style" id="slotStyle-${i}" title="Name, hat and accessory">Style</button>
+      </div>`;
     el.querySelector('.slot-main').addEventListener('click', () => {
       Sfx.init(); Sfx.play('select');
       if (state.slots[i].type === 'off') state.slots[i].type = firstFreeType();
@@ -246,10 +283,62 @@
       if (state.active < 0) state.active = 0;
       save(); refresh();
     });
+    el.querySelector('.slot-style').addEventListener('click', () => {
+      Sfx.init(); Sfx.play('select');
+      if (state.slots[i].type === 'off') state.slots[i].type = firstFreeType();
+      state.active = i; save(); refresh(); openCustom(i);
+    });
     slotsEl.appendChild(el);
-    makePortrait(el.querySelector('canvas'), () => (state.slots[i].type === 'off' ? -2 : state.slots[i].char));
+    makePortrait(el.querySelector('canvas'), () => (state.slots[i].type === 'off' ? -2 : state.slots[i].char), { slot: i });
     return el;
   });
+
+  // ------------------------------ Customize --------------------------------
+  const customEl = $('custom');
+  let customSlot = 0;
+  makePortrait($('customPreview'), () => state.slots[customSlot].char, { showoff: true, preview: true, get slot() { return customSlot; } });
+  function chips(id, items, key) {
+    const el = $(id);
+    el.innerHTML = items.map((it) => `<button type="button" class="chip" data-v="${it.id}">${it.name}</button>`).join('');
+    el.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b) return;
+      Sfx.play('select');
+      state.slots[customSlot][key] = b.dataset.v; save(); syncCustom(); refresh();
+    });
+  }
+  chips('hatChips', HATS, 'hat');
+  chips('accChips', ACCESSORIES, 'acc');
+  function syncCustom() {
+    const s = state.slots[customSlot];
+    $('hatChips').querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.v === s.hat));
+    $('accChips').querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.v === s.acc));
+  }
+  function openCustom(i) {
+    customSlot = i;
+    const s = state.slots[i];
+    $('customTitle').textContent = `Customize ${labelFor(s, i)}`;
+    $('customTitle').style.color = PLAYER_COLORS[i];
+    $('custName').value = s.name;
+    $('custName').placeholder = s.char === -1 ? 'Fighter name' : CHARS[s.char].name;
+    syncCustom();
+    customEl.hidden = false;
+    $('custName').focus({ preventScroll: true });
+  }
+  function closeCustom() { customEl.hidden = true; $(`slotStyle-${customSlot}`).focus({ preventScroll: true }); }
+  $('custName').addEventListener('input', (e) => {
+    state.slots[customSlot].name = e.target.value.replace(/\s+/g, ' ').slice(0, NAME_MAX);
+    save(); refresh();
+  });
+  $('custName').addEventListener('change', (e) => {
+    state.slots[customSlot].name = state.slots[customSlot].name.trim(); e.target.value = state.slots[customSlot].name; save(); refresh();
+  });
+  $('custRandom').addEventListener('click', () => {
+    const s = state.slots[customSlot];
+    s.hat = pick(HATS.slice(1)).id; s.acc = pick(ACCESSORIES).id;
+    Sfx.play('select'); save(); syncCustom(); refresh();
+  });
+  $('custDone').addEventListener('click', () => { Sfx.play('select'); closeCustom(); });
+  customEl.addEventListener('click', (e) => { if (e.target === customEl) closeCustom(); });
 
   // ------------------------------ Options ----------------------------------
   function seg(id, items, get, set) {
@@ -284,8 +373,10 @@
       el.classList.toggle('off', s.type === 'off');
       el.classList.toggle('active', i === state.active && s.type !== 'off');
       el.querySelector('.pill').textContent = s.type === 'off' ? `Slot ${i + 1}` : labelFor(s, i);
-      el.querySelector('.slot-char').textContent = s.type === 'off' ? 'Empty' : s.char === -1 ? 'Random' : CHARS[s.char].name;
-      el.querySelector('.slot-hint').textContent = TYPE_HINT[s.type];
+      const charName = s.char === -1 ? 'Random' : CHARS[s.char].name;
+      el.querySelector('.slot-char').textContent = s.type === 'off' ? 'Empty' : s.name || charName;
+      el.querySelector('.slot-hint').textContent = s.type !== 'off' && s.name ? `${charName} · ${TYPE_HINT[s.type]}` : TYPE_HINT[s.type];
+      el.querySelector('.slot-style').hidden = s.type === 'off';
       el.querySelector('.slot-type').textContent = s.type === 'off' ? 'Add' : TYPE_LABEL[s.type];
     });
     segs.forEach((f) => f());
@@ -299,7 +390,7 @@
     const players = [];
     state.slots.forEach((s, i) => {
       if (s.type === 'off') return;
-      players.push({ random: s.char === -1, char: s.char === -1 ? rint(0, CHARS.length - 1) : s.char, ctrl: s.type, level: state.level, color: PLAYER_COLORS[i], label: labelFor(s, i) });
+      players.push({ random: s.char === -1, char: s.char === -1 ? rint(0, CHARS.length - 1) : s.char, ctrl: s.type, level: state.level, color: PLAYER_COLORS[i], label: labelFor(s, i), name: s.name.trim(), look: lookOf(s) });
     });
     const stage = state.stage === 'random' ? pick(STAGES) : STAGES.find((st) => st.id === state.stage);
     return { players, stage, stocks: state.stocks, items: state.items, demo: false };
@@ -318,7 +409,8 @@
     const used = new Set();
     const players = [0, 1, 2, 3].map((i) => {
       let c; do { c = rint(0, CHARS.length - 1); } while (used.has(c)); used.add(c);
-      return { char: c, ctrl: 'cpu', level: 'hard', color: PLAYER_COLORS[i], label: `CPU${i + 1}` };
+      const look = { hat: Math.random() < 0.6 ? pick(HATS).id : 'none', acc: Math.random() < 0.5 ? pick(ACCESSORIES).id : 'none' };
+      return { char: c, ctrl: 'cpu', level: 'hard', color: PLAYER_COLORS[i], label: `CPU${i + 1}`, look };
     });
     game.start({ players, stage: pick(STAGES), stocks: 2, items: true, demo: true });
     Sfx.enabled = false;
@@ -332,11 +424,11 @@
   function showResults(g) {
     mode = 'results';
     const w = g.winner;
-    $('winName').textContent = w ? `${w.c.name}` : 'Draw';
+    $('winName').textContent = w ? w.name : 'Draw';
     $('winName').style.color = w ? w.color : INK;
     const rows = [...g.fighters].sort((a, b) => (b.stocks - a.stocks) || (b.stats.kos - a.stats.kos));
     $('statsTbl').innerHTML = `<thead><tr><th>Player</th><th>Fighter</th><th>K.O.s</th><th>Falls</th><th>Damage</th></tr></thead><tbody>${
-      rows.map((f) => `<tr><td><span class="badge" style="background:${f.color}">${f.label}</span></td><td>${f.c.name}</td><td>${f.stats.kos}</td><td>${f.stats.falls}</td><td>${Math.round(f.stats.dmg)}</td></tr>`).join('')}</tbody>`;
+      rows.map((f) => `<tr><td><span class="badge" style="background:${f.color}">${f.label}</span> ${esc(f.name)}</td><td>${f.c.name}</td><td>${f.stats.kos}</td><td>${f.stats.falls}</td><td>${Math.round(f.stats.dmg)}</td></tr>`).join('')}</tbody>`;
     resultsEl.hidden = false;
     $('hint').hidden = true; $('touch').hidden = true;
     resultsEl.querySelector('[data-act="rematch"]').focus({ preventScroll: true });
@@ -377,6 +469,11 @@
     if (!e.repeat) { Input.down[e.code] = true; Input.hit[e.code] = true; }
     if (mode === 'match' && GAME_CODES.has(e.code)) e.preventDefault();
     if (e.repeat) return;
+    if (!customEl.hidden) {
+      if (e.code === 'Escape' || (e.code === 'Enter' && e.target.id === 'custName')) { e.preventDefault(); closeCustom(); }
+      return;
+    }
+    if (e.target && e.target.tagName === 'INPUT') return;
     if (e.code === 'KeyM') { Sfx.init(); Sfx.muted = !Sfx.muted; toast(Sfx.muted ? 'Sound off' : 'Sound on'); }
     if ((e.code === 'Escape' || e.code === 'KeyP') && mode === 'match') { setPaused(!game.paused); e.preventDefault(); }
     else if (e.code === 'Escape' && mode === 'results') toMenu();

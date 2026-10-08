@@ -163,7 +163,7 @@ class Game {
     this.powerT = rint(360, 540);
     this.fighters = setup.players.map((p, i) => {
       const ctrl = p.ctrl === 'cpu' ? new CpuCtrl(p.level) : new HumanCtrl(p.ctrl, p.ctrl === 'p1' ? 0 : 1, p.ctrl === 'p1');
-      return new Fighter(this, i, CHARS[p.char], ctrl, { color: p.color, label: p.label, human: p.ctrl !== 'cpu' });
+      return new Fighter(this, i, CHARS[p.char], ctrl, { color: p.color, label: p.label, human: p.ctrl !== 'cpu', name: p.name, look: p.look });
     });
     this.cam = { x: this.stage.center, y: 470, z: 0.85 };
     this.bg = makeBackground(this.stage);
@@ -612,12 +612,16 @@ function hpColor(f) { const r = f.hp / f.maxHp; return r > 0.5 ? '#25a865' : r >
 
 function drawHUD(ctx, g, cw, ch) {
   const n = g.fighters.length;
-  const s = clamp(Math.min(cw / (n * 270 + 80), ch / 700), 0.4, 1.6);
+  const fit = (cols) => clamp(Math.min(cw / (cols * 270 + 80), ch / 700), 0.4, 1.6);
+  // Five or six fighters wrap onto two rows when one row would get cramped.
+  const cols = n > 4 && fit(n) < 0.8 ? Math.ceil(n / 2) : n;
+  const rows = Math.ceil(n / cols);
+  const s = fit(cols);
   const cardW = 250 * s, cardH = 78 * s, gap = 14 * s;
-  const total = n * cardW + (n - 1) * gap;
-  let x = (cw - total) / 2;
-  const y = ch - cardH - 16 * s;
-  for (const f of g.fighters) {
+  g.fighters.forEach((f, i) => {
+    const row = Math.floor(i / cols), inRow = Math.min(cols, n - row * cols);
+    const x = (cw - (inRow * cardW + (inRow - 1) * gap)) / 2 + (i % cols) * (cardW + gap);
+    const y = ch - 16 * s - (rows - row) * cardH - (rows - row - 1) * gap * 0.7;
     const out = f.stocks <= 0;
     ctx.globalAlpha = out ? 0.45 : 1;
     ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.strokeStyle = INK; ctx.lineWidth = 3 * s;
@@ -631,8 +635,12 @@ function drawHUD(ctx, g, cw, ch) {
     ctx.fillText(f.label, px, py + 21 * s);
     // Name.
     ctx.textAlign = 'left'; ctx.fillStyle = INK;
-    ctx.font = `${22 * s}px "Permanent Marker", cursive`;
-    ctx.fillText(f.c.name, x + 66 * s, y + 27 * s);
+    // Shrink long custom names so they never run into the HP readout.
+    let fs = 22 * s;
+    ctx.font = `${fs}px "Permanent Marker", cursive`;
+    const room = cardW - 66 * s - 78 * s, tw = ctx.measureText(f.name).width;
+    if (tw > room) { fs *= room / tw; ctx.font = `${fs}px "Permanent Marker", cursive`; }
+    ctx.fillText(f.name, x + 66 * s, y + 27 * s);
     ctx.font = `600 ${14 * s}px "Barlow Condensed", sans-serif`; ctx.fillStyle = '#5a6070';
     ctx.textAlign = 'right'; ctx.fillText(out ? 'OUT' : f.dead ? 'RESPAWNING' : `${Math.ceil(f.hp)} HP`, x + cardW - 12 * s, y + 26 * s);
     // HP bar.
@@ -663,8 +671,7 @@ function drawHUD(ctx, g, cw, ch) {
       ix -= 26 * s;
     }
     ctx.globalAlpha = 1;
-    x += cardW + gap;
-  }
+  });
 }
 
 function drawBanner(ctx, g, cw, ch) {

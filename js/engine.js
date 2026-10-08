@@ -271,6 +271,7 @@ function drawWeapon(ctx, type, hx, hy, ang, fc, s, accent) {
 // Draws the stick figure itself, plus its weapon(s).
 function drawFigure(ctx, J, ch, col, opts = {}) {
   const s = J.s;
+  drawLookBack(ctx, J, opts.look, opts.cape, ch.color);
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   if (ch.weapon === 'daggers') drawWeapon(ctx, 'daggers', J.h2[0], J.h2[1], J.wa2, J.fc, s, ch.color);
   if (opts.bomb) {
@@ -291,6 +292,150 @@ function drawFigure(ctx, J, ch, col, opts = {}) {
   line(ctx, J.sh, J.e1, J.h1);
   if (ch.weapon === 'fists') { ctx.strokeStyle = ch.color; ctx.lineWidth = 9 * s; line(ctx, J.h1, J.h1); }
   else drawWeapon(ctx, ch.weapon, J.h1[0], J.h1[1], J.wa, J.fc, s, ch.color);
+  drawLookFront(ctx, J, opts.look, opts.accent || ch.color);
+}
+
+
+// ----------------------------- Cosmetics -----------------------------------
+// Hats and face accessories are drawn in a head-local frame: origin at the
+// head's centre, +x toward the facing direction, -y along the neck→head axis,
+// units in unscaled pixels (head radius 11).
+function inFrame(ctx, ox, oy, bx, by, fc, s, fn) {
+  const ux = ox - bx, uy = oy - by;
+  ctx.save();
+  ctx.translate(ox, oy); ctx.rotate(Math.atan2(ux, -uy)); ctx.scale(fc * s, s);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  fn();
+  ctx.restore();
+}
+function cosPoly(ctx, pts, fill, lw = 2) {
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+  ctx.lineWidth = lw; ctx.strokeStyle = INK; ctx.stroke();
+}
+function drawHat(ctx, id, col) {
+  switch (id) {
+    case 'tophat':
+      cosPoly(ctx, [[-17, -7], [17, -7], [16, -12], [-16, -12]], '#262a33');
+      cosPoly(ctx, [[-9, -11], [9, -11], [10, -34], [-10, -34]], '#262a33');
+      ctx.fillStyle = col; ctx.fillRect(-9, -17, 18.5, 4.5);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2; line(ctx, [6, -20], [6.5, -31]);
+      break;
+    case 'cap':
+      ctx.beginPath(); ctx.arc(0, -3, 12.5, Math.PI, Math.PI * 2); ctx.closePath();
+      ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+      cosPoly(ctx, [[5, -5], [24, -3.5], [23, 0], [5, -1]], col);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(6, -2.5, 16, 2);
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(0, -15.5, 2.2, 0, Math.PI * 2); ctx.fill();
+      break;
+    case 'cowboy':
+      ctx.beginPath(); ctx.moveTo(-22, -6); ctx.quadraticCurveTo(0, -1, 22, -6); ctx.quadraticCurveTo(23, -12, 17, -10.5);
+      ctx.lineTo(-17, -10.5); ctx.quadraticCurveTo(-23, -12, -22, -6); ctx.closePath();
+      ctx.fillStyle = '#a0703f'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+      cosPoly(ctx, [[-10, -10], [10, -10], [9, -25], [3, -21], [0, -24], [-3, -21], [-9, -25]], '#a0703f');
+      ctx.fillStyle = col; ctx.fillRect(-9.5, -14.5, 19, 3.5);
+      break;
+    case 'crown':
+      cosPoly(ctx, [[-11, -7], [11, -7], [13, -25], [6, -15], [0, -28], [-6, -15], [-13, -25]], '#f2c14e');
+      ctx.fillStyle = col;
+      for (const [x, y] of [[0, -11], [-7, -10], [7, -10]]) { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); }
+      break;
+    case 'viking':
+      cosPoly(ctx, [[-11, -8], [-20, -13], [-25, -27], [-17, -17], [-9, -12]], '#f4ecd8');
+      cosPoly(ctx, [[11, -8], [20, -13], [25, -27], [17, -17], [9, -12]], '#f4ecd8');
+      ctx.beginPath(); ctx.arc(0, -3, 13, Math.PI, Math.PI * 2); ctx.closePath();
+      ctx.fillStyle = '#9aa3b2'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+      ctx.fillStyle = '#8a5a3c'; ctx.fillRect(-13, -6.5, 26, 4); ctx.strokeRect(-13, -6.5, 26, 4);
+      break;
+    case 'party':
+      cosPoly(ctx, [[-10, -7], [10, -7], [1, -37]], col);
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = 2.5;
+      line(ctx, [-6, -11], [6, -16]); line(ctx, [-3, -21], [4, -25]);
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(1, -38, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke();
+      break;
+    case 'wizard':
+      ctx.beginPath(); ctx.ellipse(0, -8, 19, 4.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#3b2e7e'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = INK; ctx.stroke();
+      cosPoly(ctx, [[-10, -9], [10, -9], [-3, -31], [-15, -42]], '#3b2e7e');
+      ctx.fillStyle = '#f2c14e';
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) { const r = i % 2 ? 1.6 : 4, a = (i / 10) * Math.PI * 2 - Math.PI / 2; ctx.lineTo(-1 + Math.cos(a) * r, -19 + Math.sin(a) * r); }
+      ctx.closePath(); ctx.fill();
+      break;
+    case 'headband':
+      ctx.strokeStyle = col; ctx.lineWidth = 4.5;
+      line(ctx, [-11, -4], [11, -6]);
+      ctx.lineWidth = 3; line(ctx, [-10, -4], [-19, -1], [-25, 5]); line(ctx, [-10, -4], [-21, -7], [-27, -4]);
+      break;
+    case 'halo':
+      ctx.strokeStyle = 'rgba(242,193,78,0.35)'; ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.ellipse(0, -25, 13, 4, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 3; ctx.stroke();
+      break;
+  }
+}
+function drawFaceAcc(ctx, id) {
+  ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff';
+  switch (id) {
+    case 'shades':
+      line(ctx, [-10, -3], [1, -3]);
+      ctx.fillStyle = '#1d2433'; ctx.beginPath(); ctx.roundRect(1, -6, 13, 6.5, 2.5); ctx.fill(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; line(ctx, [4, -4.5], [6.5, -2]);
+      break;
+    case 'mustache':
+      ctx.fillStyle = '#7a4a24';
+      ctx.beginPath(); ctx.moveTo(4, 4); ctx.quadraticCurveTo(10, -0.5, 13, 3); ctx.quadraticCurveTo(17, 0, 19, 4);
+      ctx.quadraticCurveTo(20, 8, 16, 6.5); ctx.quadraticCurveTo(12, 7, 9, 6); ctx.quadraticCurveTo(6, 7.5, 4, 4); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      break;
+    case 'beard':
+      ctx.fillStyle = '#7a4a24';
+      ctx.beginPath(); ctx.moveTo(-6, 6); ctx.quadraticCurveTo(-2, 22, 10, 18); ctx.quadraticCurveTo(16, 14, 13, 3);
+      ctx.quadraticCurveTo(6, 8, -6, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+      break;
+    case 'eyepatch':
+      line(ctx, [-11, -8], [4, -3.5]);
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(7, -2, 4.5, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      break;
+    case 'monocle':
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(7, -2, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.lineWidth = 1; line(ctx, [7, 2.5], [4, 8], [1, 14]);
+      break;
+  }
+}
+function drawBowtie(ctx, col) {
+  cosPoly(ctx, [[0, 0], [-8, -5], [-8, 5]], col, 1.8);
+  cosPoly(ctx, [[0, 0], [8, -5], [8, 5]], col, 1.8);
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(0, 0, 2.4, 0, Math.PI * 2); ctx.fill();
+}
+// Draws the cape along a rope's points, or a resting pose when there's no rope.
+function drawCape(ctx, pts, col, s) {
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const [w, c] of [[19, INK], [14, col]]) {
+    ctx.strokeStyle = c; ctx.lineWidth = w * s;
+    ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+  }
+}
+// Everything a look draws behind the body (the cape).
+function drawLookBack(ctx, J, look, cape, col) {
+  if (!look || look.acc !== 'cape') return;
+  const s = J.s;
+  const pts = cape && cape.p.length > 1 ? cape.p.map((q) => [q.x, q.y])
+    : [J.sh, [J.sh[0] - J.fc * 9 * s, J.sh[1] + 22 * s], [J.sh[0] - J.fc * 15 * s, J.sh[1] + 50 * s]];
+  drawCape(ctx, pts, col, s);
+}
+// Everything a look draws over the body: bow tie, face accessory, hat.
+function drawLookFront(ctx, J, look, col, noHat) {
+  if (!look) return;
+  const s = J.s, fc = J.fc;
+  if (look.acc === 'bowtie') inFrame(ctx, J.neck[0], J.neck[1], J.chest[0], J.chest[1], fc, s, () => drawBowtie(ctx, col));
+  inFrame(ctx, J.head[0], J.head[1], J.neck[0], J.neck[1], fc, s, () => {
+    drawFaceAcc(ctx, look.acc);
+    if (!noHat) drawHat(ctx, look.hat, col);
+  });
 }
 
 // ------------------------------ Scarf --------------------------------------
@@ -298,7 +443,7 @@ function drawFigure(ctx, J, ch, col, opts = {}) {
 class Scarf {
   constructor() { this.p = []; }
   reset(x, y) { this.p = Array.from({ length: 7 }, () => ({ x, y, px: x, py: y })); }
-  update(ax, ay, dt, wind, s) {
+  update(ax, ay, dt, wind, s, segLen = 6.5) {
     if (!this.p.length) this.reset(ax, ay);
     const p = this.p, k = dt * 60;
     p[0].x = ax; p[0].y = ay; p[0].px = ax; p[0].py = ay;
@@ -308,7 +453,7 @@ class Scarf {
       q.px = q.x; q.py = q.y;
       q.x += vx * k + wind * dt * dt * 60; q.y += vy * k + 700 * dt * dt;
     }
-    const seg = 6.5 * s;
+    const seg = segLen * s;
     for (let it = 0; it < 3; it++) {
       for (let i = 1; i < p.length; i++) {
         const a = p[i - 1], b = p[i];
@@ -657,6 +802,8 @@ class Ragdoll {
   constructor(g, f, vx, vy, hx, hy) {
     this.g = g; this.age = 0; this.char = f.c; this.color = f.color; this.s = f.scale; this.fc = f.facing;
     this.scarf = f.scarf; f.scarf = new Scarf();
+    this.look = f.look; this.accent = f.color;
+    this.cape = f.cape; if (f.cape) f.cape = new Scarf();
     const J = f.J, s = this.s;
     const src = [J.head, J.neck, J.chest, J.hip, J.e1, J.h1, J.e2, J.h2, J.k1, J.f1, J.k2, J.f2];
     this.p = src.map((q, i) => ({ x: q[0], y: q[1], ox: q[0], oy: q[1], vx: 0, vy: 0, r: (i === 0 ? LIMB.hr : 3.5) * s, c: false }));
@@ -678,6 +825,11 @@ class Ragdoll {
       [5, 1, 12 * s, 999, 0.5], [7, 1, 12 * s, 999, 0.5], [9, 3, 15 * s, 999, 0.5], [11, 3, 15 * s, 999, 0.5], [8, 10, 6 * s, 999, 0.3]];
     this.touchT = -9; this.firstTouch = -1; this.lastThud = -1; this.off = rand(0, 6);
     // Dropped weapons become their own two-point rigid sticks.
+    // The hat pops off and tumbles on its own.
+    if (f.look.hat !== 'none') {
+      const h = f.J.head;
+      this.hat = { x: h[0], y: h[1] - 8 * s, ox: h[0], oy: h[1], r: 6 * s, vx: vx * 0.7 + rand(-150, 150), vy: Math.min(vy, 0) * 0.7 - rand(350, 550), rot: 0, vr: rand(-14, 14) };
+    }
     this.weps = [];
     const W = WEAPONS[f.c.weapon] || (f.c.weapon === 'pistol' ? { tip: 24 } : null);
     if (W) {
@@ -811,12 +963,23 @@ class Ragdoll {
     }
     const n = P[1];
     this.scarf.update(n.x, n.y, dt, 0, this.s);
+    if (this.cape) this.cape.update(n.x, n.y, dt, 0, this.s, 9);
+    const h = this.hat;
+    if (h) {
+      h.ox = h.x; h.oy = h.y; h.c = false;
+      h.vy += GRAV * dt; h.x += h.vx * dt; h.y += h.vy * dt;
+      this.collidePt(h, dt, false);
+      if (h.c) { h.vx *= Math.pow(0.02, dt); h.vy = 0; h.vr *= Math.pow(0.01, dt); h.rot += wrap180(-h.rot / D2R) * D2R * Math.min(1, dt * 10); }
+      else h.vy = (h.y - h.oy) / dt;
+      h.rot += h.vr * dt;
+    }
   }
   get alpha() { return this.age < 7 ? 1 : Math.max(0, 1 - (this.age - 7)); }
   get gone() { return this.age > 8 || this.p[3].y > this.g.stage.blast.b + 400; }
   draw(ctx) {
     const P = this.p, s = this.s;
     ctx.globalAlpha = this.alpha;
+    if (this.cape) drawCape(ctx, this.cape.p.map((q) => [q.x, q.y]), this.char.color, s);
     this.scarf.draw(ctx, this.color, s);
     for (const w of this.weps) {
       const ang = Math.atan2((w.b.x - w.a.x) * this.fc, w.b.y - w.a.y) / D2R;
@@ -825,6 +988,13 @@ class Ragdoll {
     ctx.strokeStyle = INK; ctx.lineWidth = 7 * s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const ln of RAG_LINES) line(ctx, ...ln.map((i) => [P[i].x, P[i].y]));
     ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(P[0].x, P[0].y, LIMB.hr * s, 0, Math.PI * 2); ctx.fill();
+    const look = this.look;
+    if (look.acc === 'bowtie') inFrame(ctx, P[1].x, P[1].y, P[2].x, P[2].y, this.fc, s, () => drawBowtie(ctx, this.accent));
+    if (look.acc !== 'none') inFrame(ctx, P[0].x, P[0].y, P[1].x, P[1].y, this.fc, s, () => drawFaceAcc(ctx, look.acc));
+    if (this.hat) {
+      ctx.save(); ctx.translate(this.hat.x, this.hat.y); ctx.rotate(this.hat.rot); ctx.scale(this.fc * s, s);
+      ctx.translate(0, 8); drawHat(ctx, look.hat, this.accent); ctx.restore();
+    }
     // Knocked-out eyes.
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.8 * s;
     const ex = P[0].x, ey = P[0].y;
@@ -840,6 +1010,9 @@ class Fighter {
   constructor(g, idx, ch, ctrl, opts) {
     this.g = g; this.idx = idx; this.c = ch; this.ctrl = ctrl;
     this.color = opts.color; this.label = opts.label; this.human = opts.human;
+    this.name = opts.name || ch.name; this.tag = opts.name || opts.label;
+    this.look = opts.look || { hat: 'none', acc: 'none' };
+    this.cape = this.look.acc === 'cape' ? new Scarf() : null;
     this.stocks = g.opts.stocks; this.maxHp = 100;
     this.stats = { kos: 0, falls: 0, dmg: 0 };
     this.scale = 1; this.pose = Object.assign({}, BASE_POSE, ch.hold);
@@ -862,6 +1035,7 @@ class Fighter {
     this.dead = false; this.respawnT = 0; this.tumble = false; this.lastHitBy = null; this.lastHitT = 0;
     this.J = skel(this.x, this.y, this.facing, this.scale, this.pose);
     this.scarf.reset(this.J.neck[0], this.J.neck[1]);
+    if (this.cape) this.cape.reset(this.J.sh[0], this.J.sh[1]);
     this.trail.length = 0;
   }
   respawn() {
@@ -1260,6 +1434,7 @@ class Fighter {
     const J = this.J;
     const wind = -this.facing * 160 + Math.sin(g.time * 6 + this.idx) * 140 - this.vx * 0.3;
     this.scarf.update(J.neck[0] - this.facing * 2, J.neck[1] + 2, DT, wind, this.scale);
+    if (this.cape) this.cape.update(J.sh[0] - this.facing * 3, J.sh[1] + 3, DT, wind * 0.6, this.scale, 9);
     for (const t of this.trail) t.life -= 1 / 7;
     this.trail = this.trail.filter((t) => t.life > 0);
     const m = this.move;
@@ -1308,7 +1483,7 @@ class Fighter {
     if (this.buffs.rage > 0) { ctx.shadowColor = POWERS.rage.color; ctx.shadowBlur = 16 + Math.sin(g.time * 20) * 5; }
     const col = this.flash > 0 && this.flash % 4 < 2 ? '#e63946' : INK;
     if (this.hitstop > 0 && this.flash > 0) { ctx.save(); ctx.translate(rand(-3, 3), rand(-2, 2)); }
-    drawFigure(ctx, J, this.c, col, { bomb: this.bombs > 0 });
+    drawFigure(ctx, J, this.c, col, { bomb: this.bombs > 0, look: this.look, cape: this.cape, accent: this.color });
     if (this.hitstop > 0 && this.flash > 0) ctx.restore();
     ctx.shadowBlur = 0;
     if (this.shield > 0) {
@@ -1331,11 +1506,11 @@ class Fighter {
     // Name tag.
     const tx = J.head[0], ty = Math.min(J.head[1], J.hip[1] - 40 * s) - 34 * s;
     ctx.font = '700 17px "Barlow Condensed", "Arial Narrow", sans-serif';
-    const tw = ctx.measureText(this.label).width + 14;
+    const tw = ctx.measureText(this.tag).width + 14;
     ctx.fillStyle = this.color;
     ctx.beginPath(); ctx.roundRect(tx - tw / 2, ty - 21, tw, 20, 4); ctx.fill();
     ctx.beginPath(); ctx.moveTo(tx - 5, ty - 1.5); ctx.lineTo(tx + 5, ty - 1.5); ctx.lineTo(tx, ty + 5); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(this.label, tx, ty - 5.5);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.fillText(this.tag, tx, ty - 5.5);
     ctx.globalAlpha = 1;
   }
 }

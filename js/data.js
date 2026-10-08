@@ -209,7 +209,22 @@ const POWERS = {
   bomb: { name: 'Bombs', color: '#2b2d36', dur: 0 },
 };
 
-const PLAYER_COLORS = ['#e63946', '#2d7ff9', '#22a55b', '#f29e0c'];
+const PLAYER_COLORS = ['#e63946', '#2d7ff9', '#22a55b', '#f29e0c', '#9b5de5', '#0fa3b1'];
+const MAX_FIGHTERS = PLAYER_COLORS.length;
+
+// Cosmetics. Hats sit on the head; accessories go on the face, neck or back.
+const HATS = [
+  { id: 'none', name: 'None' }, { id: 'tophat', name: 'Top hat' }, { id: 'cap', name: 'Cap' },
+  { id: 'cowboy', name: 'Cowboy' }, { id: 'crown', name: 'Crown' }, { id: 'viking', name: 'Viking' },
+  { id: 'party', name: 'Party hat' }, { id: 'wizard', name: 'Wizard' }, { id: 'headband', name: 'Headband' },
+  { id: 'halo', name: 'Halo' },
+];
+const ACCESSORIES = [
+  { id: 'none', name: 'None' }, { id: 'shades', name: 'Shades' }, { id: 'mustache', name: 'Mustache' },
+  { id: 'beard', name: 'Beard' }, { id: 'eyepatch', name: 'Eye patch' }, { id: 'monocle', name: 'Monocle' },
+  { id: 'bowtie', name: 'Bow tie' }, { id: 'cape', name: 'Cape' },
+];
+const NAME_MAX = 14;
 
 const STAGES = [
   {
@@ -220,7 +235,7 @@ const STAGES = [
       { x: 940, y: 475, w: 220 },
       { x: 690, y: 320, w: 220 },
     ],
-    spawns: [[520, 640], [1080, 640], [700, 640], [900, 640]],
+    spawns: [[520, 640], [1080, 640], [700, 640], [900, 640], [550, 475], [1050, 475]],
     blast: { l: -300, r: 1900, t: -600, b: 1250 },
     center: 800,
   },
@@ -233,7 +248,7 @@ const STAGES = [
       { x: 330, y: 420, w: 180 },
       { x: 1090, y: 420, w: 180 },
     ],
-    spawns: [[420, 620], [1180, 620], [560, 620], [1040, 620]],
+    spawns: [[420, 620], [1180, 620], [560, 620], [1040, 620], [420, 420], [1180, 420]],
     blast: { l: -320, r: 1920, t: -600, b: 1250 },
     center: 800,
   },
@@ -247,7 +262,7 @@ const STAGES = [
       { x: 890, y: 440, w: 190 },
       { x: 705, y: 290, w: 190 },
     ],
-    spawns: [[560, 600], [1040, 600], [720, 600], [880, 600]],
+    spawns: [[560, 600], [1040, 600], [720, 600], [880, 600], [615, 440], [985, 440]],
     blast: { l: -300, r: 1900, t: -620, b: 1250 },
     center: 800,
   },
