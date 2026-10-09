@@ -13,7 +13,7 @@
 // Hitboxes are [x, y, r] relative to the standing hip (x forward, y down).
 // ---------------------------------------------------------------------------
 
-const LIMB = { th: 23, sh: 23, to: 36, nk: 5, hr: 11, ua: 19, fa: 19 };
+const LIMB = { th: 23, sh: 23, to: 36, nk: 4, hr: 13, ua: 19, fa: 19 };
 
 const BASE_POSE = { t: 6, h: 0, a1: 25, f1: 95, a2: -15, f2: 40, l1: 16, s1: -4, l2: -14, s2: -22, hy: 0, rot: 0, w: 0 };
 
@@ -189,15 +189,78 @@ const CHARS = [
   },
 ];
 
-// Trail and drop-on-death geometry for each weapon (px along the grip axis).
+// Trail and drop-on-death geometry for each weapon look (px along the grip axis).
+// Fist-type weapons decorate the hands and have no separate prop.
 const WEAPONS = {
-  fists: null,
-  katana: { tip: 58, base: 14 },
-  hammer: { tip: 66, base: 34 },
-  spear: { tip: 86, base: 40 },
-  daggers: { tip: 25, base: 5 },
-  pistol: null,
-  staff: { tip: 50, base: 10 },
+  fists: null, knuckles: null, gauntlets: null,
+  nunchucks: { tip: 36, base: 8 },
+  katana: { tip: 58, base: 14 }, nodachi: { tip: 76, base: 16 }, energy: { tip: 62, base: 10 }, bokken: { tip: 58, base: 12 },
+  hammer: { tip: 66, base: 34 }, greataxe: { tip: 70, base: 40 }, anchor: { tip: 74, base: 30 }, club: { tip: 58, base: 26 },
+  spear: { tip: 86, base: 40 }, halberd: { tip: 88, base: 44 }, trident: { tip: 90, base: 46 }, naginata: { tip: 92, base: 52 },
+  daggers: { tip: 25, base: 5 }, kama: { tip: 26, base: 8 }, sai: { tip: 27, base: 6 },
+  pistol: { tip: 24, base: 4 }, cannon: { tip: 32, base: 4 }, twin: { tip: 24, base: 4 }, raygun: { tip: 28, base: 4 },
+  staff: { tip: 50, base: 10 }, wand: { tip: 32, base: 6 }, scythe: { tip: 60, base: 30 },
+};
+const FIST_WEAPONS = new Set(['fists', 'knuckles', 'gauntlets']);
+// These are carried one per hand.
+const DUAL_WEAPONS = new Set(['daggers', 'kama', 'sai', 'twin']);
+
+// Each class picks from its own arsenal. `mod` scales the whole moveset:
+// damage, knockback, speed (higher = faster startup/recovery), melee reach,
+// projectile speed/size. `moves` overrides individual moves.
+const ARSENALS = {
+  kade: [
+    { id: 'wraps', name: 'Hand Wraps', draw: 'fists', desc: 'The baseline: quick, reliable combos.', mod: {} },
+    { id: 'knuckles', name: 'Brass Knuckles', draw: 'knuckles', desc: 'Harder punches, a little slower.', mod: { dmg: 1.15, kb: 1.05, speed: 0.93 } },
+    { id: 'gauntlets', name: 'Power Gauntlets', draw: 'gauntlets', desc: 'Huge knockback, slow wind-ups.', mod: { dmg: 1.25, kb: 1.25, speed: 0.8 } },
+    { id: 'nunchucks', name: 'Nunchucks', draw: 'nunchucks', trail: 'weapon', desc: 'Extra reach and speed, lighter hits.', mod: { dmg: 0.92, speed: 1.08, reach: 1.3 } },
+  ],
+  sora: [
+    { id: 'katana', name: 'Katana', draw: 'katana', desc: 'The baseline: precise, balanced cuts.', mod: {} },
+    { id: 'nodachi', name: 'Nodachi', draw: 'nodachi', desc: 'A long field sword. Big reach, slower.', mod: { dmg: 1.1, kb: 1.05, speed: 0.85, reach: 1.25 } },
+    { id: 'energy', name: 'Plasma Blade', draw: 'energy', tint: '#ff3355', desc: 'Searing hits and a glowing trail.', mod: { dmg: 1.15 } },
+    { id: 'bokken', name: 'Bokken', draw: 'bokken', desc: 'Wooden practice sword. Fast, bonks hard.', mod: { dmg: 0.8, kb: 1.3, speed: 1.15 } },
+  ],
+  brutus: [
+    { id: 'hammer', name: 'Warhammer', draw: 'hammer', desc: 'The baseline: crushing all-rounder.', mod: {} },
+    { id: 'greataxe', name: 'Great Axe', draw: 'greataxe', desc: 'Heavier damage and reach.', mod: { dmg: 1.2, kb: 0.95, speed: 0.9, reach: 1.1 } },
+    { id: 'anchor', name: 'Ship Anchor', draw: 'anchor', desc: 'Launches anything it touches. Very slow.', mod: { dmg: 1.1, kb: 1.35, speed: 0.8, reach: 1.15 } },
+    { id: 'club', name: 'Spiked Club', draw: 'club', desc: 'Lighter and quicker to swing.', mod: { dmg: 0.9, kb: 0.95, speed: 1.15 } },
+  ],
+  vex: [
+    { id: 'spear', name: 'Spear', draw: 'spear', desc: 'The baseline: long, fast pokes.', mod: {} },
+    { id: 'halberd', name: 'Halberd', draw: 'halberd', desc: 'Axe-headed pole. Heavier and slower.', mod: { dmg: 1.15, kb: 1.1, speed: 0.88 } },
+    { id: 'trident', name: 'Trident', draw: 'trident', desc: 'Wider prongs and a stronger javelin.', mod: { dmg: 1.05, reach: 1.08, pdmg: 1.15, pr: 1.3 } },
+    { id: 'naginata', name: 'Naginata', draw: 'naginata', desc: 'Curved blade. Quick sweeping strikes.', mod: { dmg: 0.95, speed: 1.12, reach: 1.05 } },
+  ],
+  nyx: [
+    { id: 'daggers', name: 'Twin Daggers', draw: 'daggers', desc: 'The baseline: blinding speed.', mod: {} },
+    { id: 'kama', name: 'Kama', draw: 'kama', desc: 'Hooked sickles. More bite and reach.', mod: { dmg: 1.1, reach: 1.12, speed: 0.95 } },
+    { id: 'sai', name: 'Sai', draw: 'sai', desc: 'Even faster jabs that knock back harder.', mod: { dmg: 0.9, kb: 1.12, speed: 1.12 } },
+  ],
+  colt: [
+    { id: 'revolver', name: 'Revolver', draw: 'pistol', desc: 'The baseline: steady six-shooter.', mod: {} },
+    { id: 'cannon', name: 'Hand Cannon', draw: 'cannon', desc: 'Huge slow slugs that hit like a truck.', mod: { dmg: 1.35, kb: 1.25, speed: 0.8, pspeed: 0.8, pr: 1.7 } },
+    { id: 'twin', name: 'Twin Pistols', draw: 'twin', desc: 'Two guns: double Quick Draw, weaker shots.', mod: { dmg: 0.85, speed: 1.15 }, moves: { nsig: { proj: { count: 2, spread: 4 } } } },
+    { id: 'raygun', name: 'Ray Gun', draw: 'raygun', tint: '#39e07a', desc: 'Fast laser bolts that cross the map.', mod: { pspeed: 1.4, dmg: 1.05 } },
+  ],
+  orin: [
+    { id: 'staff', name: 'Staff', draw: 'staff', desc: 'The baseline: balanced magic and melee.', mod: {} },
+    { id: 'wand', name: 'Crystal Wand', draw: 'wand', tint: '#c77dff', desc: 'Faster casting and spells, weak melee.', mod: { speed: 1.15, dmg: 0.9, reach: 0.8, pspeed: 1.25 } },
+    { id: 'scythe', name: 'Scythe', draw: 'scythe', desc: 'Reaping melee, slower casting.', mod: { dmg: 1.25, kb: 1.05, speed: 0.9, reach: 1.15 } },
+  ],
+};
+
+// Built-in "Flash game" looks: flat fills with a dark outline, clothes and hair.
+const OUTLINE = '#1b1c22';
+const OUTFITS = {
+  kade: { skin: '#f1c49b', shirt: '#f6f5ef', sleeves: false, pants: '#3e6db5', shoes: '#2a2b31', hair: 'none', limb: 10.5, size: 1 },
+  sora: { skin: '#f0c39a', shirt: '#2c3e73', sleeves: true, pants: '#1f2438', belt: '#d43c3c', shoes: '#3a2a20', hair: 'topknot', hairColor: '#1b1b1f', limb: 9.5, size: 1 },
+  brutus: { skin: '#d9a27a', shirt: '#6e4529', sleeves: false, pants: '#4a4e57', belt: '#c47a2c', shoes: '#2a2b31', hair: 'mohawk', hairColor: '#c47a2c', beard: '#5a3a22', limb: 13, size: 1.14 },
+  vex: { skin: '#e8b48e', shirt: '#2a9d8f', sleeves: true, pants: '#e6d3a3', belt: '#7a5230', shoes: '#5a3a22', hair: 'ponytail', hairColor: '#8a3b1e', limb: 9, size: 1 },
+  nyx: { skin: '#2a2c35', shirt: '#2a2c35', sleeves: true, pants: '#2a2c35', shoes: '#15161b', outline: '#0b0b0f', hair: 'ninjaband', hairColor: '#d62839', limb: 8.5, size: 0.95 },
+  colt: { skin: '#e9b98e', shirt: '#a0603a', sleeves: true, pants: '#3d5a8a', belt: '#2b2b30', shoes: '#4a2f1e', hair: 'short', hairColor: '#6b4226', limb: 9.5, size: 1 },
+  orin: { skin: '#e7c3a0', shirt: '#3c5aa6', sleeves: true, pants: '#3c5aa6', robe: '#3c5aa6', shoes: '#2b2f3a', hair: 'long', hairColor: '#ececf2', beard: '#ececf2', limb: 9, size: 1 },
 };
 
 const POWERS = {
@@ -212,59 +275,76 @@ const POWERS = {
 const PLAYER_COLORS = ['#e63946', '#2d7ff9', '#22a55b', '#f29e0c', '#9b5de5', '#0fa3b1'];
 const MAX_FIGHTERS = PLAYER_COLORS.length;
 
-// Cosmetics. Hats sit on the head; accessories go on the face, neck or back.
+// Cosmetics. Hats sit on the head, face items on the face or neck, back items behind the body.
 const HATS = [
   { id: 'none', name: 'None' }, { id: 'tophat', name: 'Top hat' }, { id: 'cap', name: 'Cap' },
   { id: 'cowboy', name: 'Cowboy' }, { id: 'crown', name: 'Crown' }, { id: 'viking', name: 'Viking' },
   { id: 'party', name: 'Party hat' }, { id: 'wizard', name: 'Wizard' }, { id: 'headband', name: 'Headband' },
-  { id: 'halo', name: 'Halo' },
+  { id: 'halo', name: 'Halo' }, { id: 'horns', name: 'Devil horns' }, { id: 'beanie', name: 'Beanie' },
+  { id: 'kabuto', name: 'Kabuto' }, { id: 'pirate', name: 'Pirate' },
 ];
-const ACCESSORIES = [
-  { id: 'none', name: 'None' }, { id: 'shades', name: 'Shades' }, { id: 'mustache', name: 'Mustache' },
+const FACES = [
+  { id: 'none', name: 'None' }, { id: 'gasmask', name: 'Gas mask' }, { id: 'shades', name: 'Shades' },
+  { id: 'ninjamask', name: 'Ninja mask' }, { id: 'hockey', name: 'Hockey mask' }, { id: 'mustache', name: 'Mustache' },
   { id: 'beard', name: 'Beard' }, { id: 'eyepatch', name: 'Eye patch' }, { id: 'monocle', name: 'Monocle' },
-  { id: 'bowtie', name: 'Bow tie' }, { id: 'cape', name: 'Cape' },
+  { id: 'bowtie', name: 'Bow tie' },
+];
+const BACKS = [
+  { id: 'none', name: 'None' }, { id: 'batwings', name: 'Dragon wings' }, { id: 'angelwings', name: 'Angel wings' },
+  { id: 'cape', name: 'Cape' }, { id: 'jetpack', name: 'Jetpack' },
+];
+// "Classic" keeps the character's outfit; any other color paints the whole body.
+const BODY_COLORS = [
+  { id: 'classic', name: 'Classic', fill: null },
+  { id: 'red', name: 'Red', fill: '#e8352f' }, { id: 'ink', name: 'Shadow', fill: '#2a2c35', outline: '#0b0b0f' },
+  { id: 'blue', name: 'Blue', fill: '#2f6fe0' }, { id: 'green', name: 'Green', fill: '#2fa84f' },
+  { id: 'gold', name: 'Gold', fill: '#f2b630' }, { id: 'white', name: 'White', fill: '#f4f4f2' },
+  { id: 'purple', name: 'Purple', fill: '#8b46d9' }, { id: 'orange', name: 'Orange', fill: '#f07f2a' },
+  { id: 'pink', name: 'Pink', fill: '#f06fb0' }, { id: 'cyan', name: 'Cyan', fill: '#22b8cf' },
 ];
 const NAME_MAX = 14;
 
+// Three arenas of different sizes. `players` is the lineup size each suits
+// best (used by Random); `cam` bounds how far the camera pans and zooms.
 const STAGES = [
   {
-    id: 'notebook', name: 'Notebook', theme: 'paper',
+    id: 'bath', name: 'Bathhouse', size: 'Small', theme: 'bath', players: [2, 2],
+    blurb: 'A cramped wooden deck over the baths. Short blast zones make for fast, brutal duels.',
     plats: [
-      { x: 340, y: 640, w: 920, h: 70, solid: true },
-      { x: 440, y: 475, w: 220 },
-      { x: 940, y: 475, w: 220 },
-      { x: 690, y: 320, w: 220 },
+      { x: 470, y: 640, w: 660, h: 60, solid: true },
+      { x: 690, y: 485, w: 220 },
     ],
-    spawns: [[520, 640], [1080, 640], [700, 640], [900, 640], [550, 475], [1050, 475]],
-    blast: { l: -300, r: 1900, t: -600, b: 1250 },
-    center: 800,
+    spawns: [[590, 640], [1010, 640], [700, 640], [900, 640], [740, 485], [860, 485]],
+    blast: { l: 110, r: 1490, t: -360, b: 1050 },
+    center: 800, cam: { x: 140, zMin: 0.8, zMax: 1.3, minW: 820 },
   },
   {
-    id: 'sunset', name: 'Sunset Peaks', theme: 'sunset',
+    id: 'grove', name: 'Dream Grove', size: 'Medium', theme: 'grove', players: [2, 4],
+    blurb: 'A grassy island under a sleepy giant tree, with three floating planks.',
     plats: [
-      { x: 230, y: 620, w: 470, h: 90, solid: true },
-      { x: 900, y: 620, w: 470, h: 90, solid: true },
-      { x: 655, y: 450, w: 290 },
-      { x: 330, y: 420, w: 180 },
-      { x: 1090, y: 420, w: 180 },
+      { x: 360, y: 640, w: 880, h: 90, solid: true },
+      { x: 420, y: 500, w: 200 },
+      { x: 980, y: 500, w: 200 },
+      { x: 700, y: 375, w: 200 },
     ],
-    spawns: [[420, 620], [1180, 620], [560, 620], [1040, 620], [420, 420], [1180, 420]],
-    blast: { l: -320, r: 1920, t: -600, b: 1250 },
-    center: 800,
+    spawns: [[500, 640], [1100, 640], [680, 640], [920, 640], [520, 500], [1080, 500]],
+    blast: { l: -260, r: 1860, t: -560, b: 1200 },
+    center: 800, cam: { x: 420, zMin: 0.6, zMax: 1.15, minW: 1000 },
   },
   {
-    id: 'temple', name: 'Sky Temple', theme: 'sky',
+    id: 'shrine', name: 'Crimson Shrine', size: 'Large', theme: 'shrine', players: [3, 6],
+    blurb: 'A long lacquered pavilion with railings and rafters. Room for a six-fighter brawl.',
     plats: [
-      { x: 430, y: 600, w: 740, h: 56, solid: true },
-      { x: 200, y: 700, w: 170 },
-      { x: 1230, y: 700, w: 170 },
-      { x: 520, y: 440, w: 190 },
-      { x: 890, y: 440, w: 190 },
-      { x: 705, y: 290, w: 190 },
+      { x: 140, y: 640, w: 1320, h: 70, solid: true },
+      { x: 240, y: 500, w: 260 },
+      { x: 1100, y: 500, w: 260 },
+      { x: 650, y: 470, w: 300 },
+      { x: 400, y: 330, w: 240 },
+      { x: 960, y: 330, w: 240 },
     ],
-    spawns: [[560, 600], [1040, 600], [720, 600], [880, 600], [615, 440], [985, 440]],
-    blast: { l: -300, r: 1900, t: -620, b: 1250 },
-    center: 800,
+    spawns: [[330, 640], [1270, 640], [620, 640], [980, 640], [370, 500], [1230, 500]],
+    blast: { l: -520, r: 2120, t: -620, b: 1250 },
+    center: 800, cam: { x: 660, zMin: 0.46, zMax: 1.05, minW: 1100 },
   },
 ];
 
@@ -273,3 +353,31 @@ const CPU_LEVELS = {
   normal: { name: 'Normal', react: 13, aggr: 0.65, dodge: 0.14, cool: 18, miss: 0.15 },
   hard: { name: 'Hard', react: 6, aggr: 0.9, dodge: 0.32, cool: 8, miss: 0.04 },
 };
+
+// Builds a fighter's loadout: the character with its chosen weapon applied
+// to every move (damage, knockback, timing, reach and projectiles).
+function makeLoadout(ch, wid) {
+  const ars = ARSENALS[ch.id];
+  const w = ars.find((a) => a.id === wid) || ars[0];
+  const m = Object.assign({ dmg: 1, kb: 1, speed: 1, reach: 1, pspeed: 1, pr: 1, pdmg: 1 }, w.mod);
+  const moves = {};
+  for (const [k, mv] of Object.entries(ch.moves)) {
+    const out = {
+      ...mv,
+      f: [Math.max(1, Math.round(mv.f[0] / m.speed)), mv.f[1], Math.max(2, Math.round(mv.f[2] / m.speed))],
+      hb: mv.hb.map(([x, y, r]) => [x * m.reach, y, x === 0 ? r * m.reach : r * (1 + (m.reach - 1) * 0.4)]),
+      dmg: mv.dmg * m.dmg, kb: mv.kb * m.kb, ks: mv.ks * m.kb,
+    };
+    if (mv.proj) {
+      out.proj = { ...mv.proj, dmg: mv.proj.dmg * m.dmg * m.pdmg, kb: mv.proj.kb * m.kb, ks: mv.proj.ks * m.kb, speed: mv.proj.speed * m.pspeed, r: mv.proj.r * m.pr, tint: w.tint };
+    }
+    if (mv.landHit) out.landHit = { ...mv.landHit, dmg: mv.landHit.dmg * m.dmg, kb: mv.landHit.kb * m.kb, ks: mv.landHit.ks * m.kb };
+    const ov = w.moves && w.moves[k];
+    if (ov) { const { proj, ...rest } = ov; Object.assign(out, rest); if (proj) out.proj = { ...out.proj, ...proj }; }
+    moves[k] = out;
+  }
+  return {
+    ...ch, moves, weapon: w.draw, wid: w.id, wname: w.name, wtint: w.tint || null,
+    trail: w.trail || ch.trail, reach: m.reach, outfit: OUTFITS[ch.id], size: OUTFITS[ch.id].size,
+  };
+}

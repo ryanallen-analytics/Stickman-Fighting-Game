@@ -14,13 +14,30 @@ The menu runs a live 4-CPU battle in the background. Pick fighters for up to 6 s
 
 ## Customization
 
-Press **Style** on any lineup slot to open its customizer:
+Fighters are drawn in a Flash-game style: chunky outlined bodies, outfits, hair and faces. Press **Style** on any lineup slot to open its customizer:
 
 - **Name:** up to 14 characters. It's shown on the fighter's name tag, the HUD card, and the results screen.
-- **Hat:** top hat, cap, cowboy hat, crown, viking helmet, party hat, wizard hat, headband, or halo.
-- **Accessory:** shades, mustache, beard, eye patch, monocle, bow tie, or a cape with rope physics.
+- **Weapon:** a pick from the character's class arsenal (see below).
+- **Body color:** keep the classic outfit, or paint the whole body one of 10 colors.
+- **Hat (13):** top hat, cap, cowboy, crown, viking, party hat, wizard, headband, halo, devil horns, beanie, kabuto, or pirate hat.
+- **Face (9):** gas mask, shades, ninja mask, hockey mask, mustache, beard, eye patch, monocle, or bow tie.
+- **Back (4):** dragon wings, angel wings, a cape with rope physics, or a jetpack. Wings flap and the jetpack fires while airborne.
 
 Hats pop off and tumble away when a fighter is K.O.'d. Your lineup and looks are saved in the browser.
+
+## Arsenals
+
+Each class has its own weapons. A weapon changes the look and scales the whole moveset: damage, knockback, speed, reach, and projectiles.
+
+| Fighter | Class | Weapons |
+| --- | --- | --- |
+| KADE | Brawler | Hand Wraps, Brass Knuckles, Power Gauntlets, Nunchucks |
+| SORA | Ronin | Katana, Nodachi, Plasma Blade, Bokken |
+| BRUTUS | Titan | Warhammer, Great Axe, Ship Anchor, Spiked Club |
+| VEX | Lancer | Spear, Halberd, Trident, Naginata |
+| NYX | Shade | Twin Daggers, Kama, Sai |
+| COLT | Gunslinger | Revolver, Hand Cannon, Twin Pistols, Ray Gun |
+| ORIN | Mystic | Staff, Crystal Wand, Scythe |
 
 ## Controls
 
@@ -60,7 +77,13 @@ Power-ups parachute onto the stage: **Health** (+35 HP), **Rage** (+45% damage),
 
 ## Stages
 
-**Notebook** (a hardback book and pencil platforms on ruled paper), **Sunset Peaks** (twin floating islands), and **Sky Temple** (a marble arena with drop-through ledges).
+| Stage | Size | Best for | Layout |
+| --- | --- | --- | --- |
+| Bathhouse | Small | 1v1 | A wooden deck over a hot bath, with a mountain mural behind. One hanging plank and short blast zones. |
+| Dream Grove | Medium | 2–4 fighters | A grassy floating island under a sleepy giant tree, with three floating planks. |
+| Crimson Shrine | Large | 3–6 fighters | A long lacquered pavilion over a koi pond, with railings, rafters and five platforms. |
+
+**Random** picks a stage sized for the number of fighters in the lineup.
 
 ## Code layout
 

@@ -11,12 +11,12 @@
   const TYPE_LABEL = { p1: 'Player 1', p2: 'Player 2', cpu: 'CPU', off: 'Empty' };
   const TYPE_HINT = { p1: 'WASD · J K L', p2: 'Arrows · , . /', cpu: 'Computer', off: 'Click to add' };
 
-  const newSlot = (type, char) => ({ type, char, name: '', hat: 'none', acc: 'none' });
+  const newSlot = (type, char) => ({ type, char, name: '', hat: 'none', face: 'none', back: 'none', color: 'classic', weapon: '' });
   const state = {
     slots: [newSlot('p1', 0), newSlot('cpu', 1), newSlot('off', 2), newSlot('off', 5), newSlot('off', 3), newSlot('off', 6)],
     active: 0, stocks: 3, level: 'normal', stage: 'random', items: true,
   };
-  const validHat = (id) => HATS.some((h) => h.id === id), validAcc = (id) => ACCESSORIES.some((a) => a.id === id);
+  const valid = (list, id) => list.some((x) => x.id === id);
   try {
     const saved = JSON.parse(localStorage.getItem('stickclash.setup') || 'null');
     if (saved && Array.isArray(saved.slots)) {
@@ -26,14 +26,27 @@
         if (SLOT_TYPES.includes(o.type)) d.type = o.type;
         if (Number.isInteger(o.char) && o.char >= -1 && o.char < CHARS.length) d.char = o.char;
         if (typeof o.name === 'string') d.name = o.name.slice(0, NAME_MAX);
-        if (validHat(o.hat)) d.hat = o.hat;
-        if (validAcc(o.acc)) d.acc = o.acc;
+        if (valid(HATS, o.hat)) d.hat = o.hat;
+        if (valid(FACES, o.face)) d.face = o.face;
+        if (valid(BACKS, o.back)) d.back = o.back;
+        if (valid(BODY_COLORS, o.color)) d.color = o.color;
+        if (typeof o.weapon === 'string') d.weapon = o.weapon;
+        // Saves from before the face/back split stored one "acc" item.
+        if (o.acc === 'cape') d.back = 'cape'; else if (valid(FACES, o.acc)) d.face = o.acc;
       });
-      for (const k of ['stocks', 'level', 'stage', 'items']) if (k in saved) state[k] = saved[k];
+      for (const k of ['stocks', 'level', 'items']) if (k in saved) state[k] = saved[k];
+      if (saved.stage === 'random' || valid(STAGES, saved.stage)) state.stage = saved.stage;
     }
   } catch (e) { /* storage unavailable */ }
   const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const lookOf = (s) => ({ hat: s.hat, acc: s.acc });
+  const lookOf = (s) => ({ hat: s.hat, face: s.face, back: s.back, color: s.color });
+  // Loadouts are cached per character+weapon for the menu portraits.
+  const loadouts = new Map();
+  const loadoutFor = (ci, wid) => {
+    const key = `${ci}:${wid || ''}`;
+    if (!loadouts.has(key)) loadouts.set(key, makeLoadout(CHARS[ci], wid));
+    return loadouts.get(key);
+  };
   const save = () => { try { localStorage.setItem('stickclash.setup', JSON.stringify(state)); } catch (e) { /* ignore */ } };
 
   let mode = 'menu';
@@ -46,7 +59,7 @@
     <div class="menu-inner">
       <header class="masthead">
         <h1 class="logo">Stick&nbsp;Clash</h1>
-        <p class="tagline">A platform fighter for stick people. Drain their health for a ragdoll K.O., or launch them off the page.</p>
+        <p class="tagline">A platform fighter for stick people. Drain their health for a ragdoll K.O., or launch them off the stage.</p>
       </header>
       <div class="layout">
         <section class="col" aria-label="Fighters">
@@ -62,6 +75,7 @@
             <div class="opt"><span>Stocks</span><div class="seg" id="optStocks"></div></div>
             <div class="opt"><span>CPU level</span><div class="seg" id="optLevel"></div></div>
             <div class="opt"><span>Stage</span><div class="seg" id="optStage"></div></div>
+            <p class="stage-note" id="stageNote"></p>
             <div class="opt"><span>Power-ups</span><div class="seg" id="optItems"></div></div>
           </div>
           <button class="fight" id="fightBtn" type="button">Fight!</button>
@@ -93,8 +107,11 @@
         <div class="custom-fields">
           <label class="field" for="custName"><span>Name</span>
             <input id="custName" type="text" maxlength="${NAME_MAX}" autocomplete="off" spellcheck="false"></label>
+          <div class="field"><span>Weapon</span><div class="chips" id="wpnChips"></div><p class="wpn-desc" id="wpnDesc"></p></div>
+          <div class="field"><span>Body color</span><div class="swatches" id="colorChips"></div></div>
           <div class="field"><span>Hat</span><div class="chips" id="hatChips"></div></div>
-          <div class="field"><span>Accessory</span><div class="chips" id="accChips"></div></div>
+          <div class="field"><span>Face</span><div class="chips" id="faceChips"></div></div>
+          <div class="field"><span>Back</span><div class="chips" id="backChips"></div></div>
         </div>
       </div>
       <div class="btns">
@@ -163,7 +180,8 @@
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', cv.width / 2, cv.height / 2);
         continue;
       }
-      const ch = CHARS[ci < 0 ? 0 : ci];
+      const slot = p.opts.slot !== undefined ? state.slots[p.opts.slot] : null;
+      const ch = loadoutFor(ci < 0 ? 0 : ci, slot ? slot.weapon : '');
       p.t += dt;
       const target = Object.assign({}, BASE_POSE, ch.hold);
       const b = Math.sin(p.t * 2.8);
@@ -180,9 +198,9 @@
       for (const key in target) p.pose[key] += (target[key] - p.pose[key]) * k;
       const sc = cv.height / 150;
       ctx.setTransform(sc, 0, 0, sc, 0, 0);
-      const J = skel((150 * cv.width / cv.height) * 0.42, 138, 1, 1, p.pose);
-      const slot = p.opts.slot !== undefined ? state.slots[p.opts.slot] : null;
-      drawFigure(ctx, J, ch, INK, slot ? { look: lookOf(slot), accent: PLAYER_COLORS[p.opts.slot] } : {});
+      const J = skel((150 * cv.width / cv.height) * 0.42, 138, 1, ch.size * 0.95, p.pose);
+      const look = slot ? lookOf(slot) : null;
+      drawFigure(ctx, J, ch, INK, { look, outfit: outfitFor(ch, look), accent: slot ? PLAYER_COLORS[p.opts.slot] : ch.color, t: p.t, mood: p.opts.showoff && p.t % 2.4 > 1 && p.t % 2.4 < 1.8 ? 'angry' : 'normal' });
     }
   }
 
@@ -208,6 +226,7 @@
   function assignChar(ci) {
     const s = state.slots[state.active];
     if (s.type === 'off') s.type = firstFreeType();
+    if (s.char !== ci) s.weapon = '';
     s.char = ci;
     // Advance to the next filled slot so picking a whole lineup is quick.
     for (let i = 1; i <= MAX_FIGHTERS; i++) {
@@ -247,6 +266,8 @@
           <h4>Light</h4>
           <ul>${['jab', 'ftilt', 'utilt', 'dtilt'].map((k) => `<li><b>${dirGlyph[k === 'jab' ? 'n' : k === 'ftilt' ? 's' : k[0]]}</b>${mv(k)}</li>`).join('')}
           <li><b>air</b>${[mv('nair'), mv('dair')].join(' · ')}</li></ul>
+          <h4>Arsenal</h4>
+          <p class="d-arsenal">${ARSENALS[ch.id].map((w) => w.name).join(' · ')}</p>
         </div>
       </div>`;
   }
@@ -307,11 +328,40 @@
     });
   }
   chips('hatChips', HATS, 'hat');
-  chips('accChips', ACCESSORIES, 'acc');
+  chips('faceChips', FACES, 'face');
+  chips('backChips', BACKS, 'back');
+  $('colorChips').innerHTML = BODY_COLORS.map((c) =>
+    `<button type="button" class="swatch${c.fill ? '' : ' classic'}" data-v="${c.id}" title="${c.name}" aria-label="${c.name}" style="--sw:${c.fill || 'transparent'}"></button>`).join('');
+  $('colorChips').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    Sfx.play('select'); state.slots[customSlot].color = b.dataset.v; save(); syncCustom(); refresh();
+  });
+  $('wpnChips').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    Sfx.play('select'); state.slots[customSlot].weapon = b.dataset.v; save(); syncCustom(); refresh();
+  });
+  const pct = (v, label) => (v && v !== 1 ? `${label} ${v > 1 ? '+' : '−'}${Math.round(Math.abs(v - 1) * 100)}%` : null);
+  const weaponOf = (s) => {
+    const ars = ARSENALS[CHARS[s.char < 0 ? 0 : s.char].id];
+    return ars.find((w) => w.id === s.weapon) || ars[0];
+  };
   function syncCustom() {
     const s = state.slots[customSlot];
-    $('hatChips').querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.v === s.hat));
-    $('accChips').querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.v === s.acc));
+    for (const [id, key] of [['hatChips', 'hat'], ['faceChips', 'face'], ['backChips', 'back'], ['colorChips', 'color']]) {
+      $(id).querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === s[key]));
+    }
+    // Weapons depend on the class; a random fighter rolls its weapon at match start.
+    const wEl = $('wpnChips');
+    if (s.char === -1) {
+      wEl.innerHTML = '';
+      $('wpnDesc').textContent = 'Random fighters get a random weapon from their arsenal.';
+      return;
+    }
+    const ars = ARSENALS[CHARS[s.char].id], cur = weaponOf(s);
+    wEl.innerHTML = ars.map((w) => `<button type="button" class="chip${w === cur ? ' on' : ''}" data-v="${w.id}">${w.name}</button>`).join('');
+    const m = cur.mod;
+    const stats = [pct(m.dmg, 'Damage'), pct(m.kb, 'Knockback'), pct(m.speed, 'Speed'), pct(m.reach, 'Reach'), pct(m.pspeed, 'Shot speed')].filter(Boolean);
+    $('wpnDesc').textContent = `${cur.desc}${stats.length ? ' ' + stats.join(' · ') : ''}`;
   }
   function openCustom(i) {
     customSlot = i;
@@ -334,7 +384,8 @@
   });
   $('custRandom').addEventListener('click', () => {
     const s = state.slots[customSlot];
-    s.hat = pick(HATS.slice(1)).id; s.acc = pick(ACCESSORIES).id;
+    s.hat = pick(HATS.slice(1)).id; s.face = pick(FACES).id; s.back = pick(BACKS).id;
+    s.color = Math.random() < 0.5 ? 'classic' : pick(BODY_COLORS).id;
     Sfx.play('select'); save(); syncCustom(); refresh();
   });
   $('custDone').addEventListener('click', () => { Sfx.play('select'); closeCustom(); });
@@ -354,7 +405,7 @@
   const segs = [
     seg('optStocks', [1, 2, 3, 4, 5].map((n) => [n, n]), () => state.stocks, (v) => (state.stocks = +v)),
     seg('optLevel', Object.entries(CPU_LEVELS).map(([k, v]) => [k, v.name]), () => state.level, (v) => (state.level = v)),
-    seg('optStage', [['random', 'Random'], ...STAGES.map((s) => [s.id, s.name])], () => state.stage, (v) => (state.stage = v)),
+    seg('optStage', [['random', 'Random'], ...STAGES.map((s) => [s.id, `${s.name} · ${s.size[0]}`])], () => state.stage, (v) => (state.stage = v)),
     seg('optItems', [['true', 'On'], ['false', 'Off']], () => state.items, (v) => (state.items = v === 'true')),
   ];
 
@@ -380,6 +431,11 @@
       el.querySelector('.slot-type').textContent = s.type === 'off' ? 'Add' : TYPE_LABEL[s.type];
     });
     segs.forEach((f) => f());
+    const st = STAGES.find((x) => x.id === state.stage);
+    const n = state.slots.filter((x) => x.type !== 'off').length;
+    $('stageNote').textContent = st
+      ? `${st.size} arena, best for ${st.players[0] === st.players[1] ? `${st.players[0]} fighters` : `${st.players[0]}–${st.players[1]} fighters`}. ${st.blurb}`
+      : `Random picks an arena sized for ${n} fighter${n === 1 ? '' : 's'}: small for duels, large for 5–6.`;
     renderDetail();
     $('err').textContent = '';
   }
@@ -390,10 +446,17 @@
     const players = [];
     state.slots.forEach((s, i) => {
       if (s.type === 'off') return;
-      players.push({ random: s.char === -1, char: s.char === -1 ? rint(0, CHARS.length - 1) : s.char, ctrl: s.type, level: state.level, color: PLAYER_COLORS[i], label: labelFor(s, i), name: s.name.trim(), look: lookOf(s) });
+      const random = s.char === -1, char = random ? rint(0, CHARS.length - 1) : s.char;
+      const weapon = random ? pick(ARSENALS[CHARS[char].id]).id : s.weapon;
+      players.push({ random, char, weapon, ctrl: s.type, level: state.level, color: PLAYER_COLORS[i], label: labelFor(s, i), name: s.name.trim(), look: lookOf(s) });
     });
-    const stage = state.stage === 'random' ? pick(STAGES) : STAGES.find((st) => st.id === state.stage);
-    return { players, stage, stocks: state.stocks, items: state.items, demo: false };
+    return { players, stage: stageFor(players.length), stocks: state.stocks, items: state.items, demo: false };
+  }
+  // "Random" picks among the stages sized for this many fighters.
+  function stageFor(n) {
+    if (state.stage !== 'random') return STAGES.find((st) => st.id === state.stage) || STAGES[0];
+    const fits = STAGES.filter((st) => n >= st.players[0] && n <= st.players[1]);
+    return pick(fits.length ? fits : STAGES);
   }
   function startMatch(setup) {
     Sfx.init(); Sfx.enabled = true;
@@ -409,10 +472,13 @@
     const used = new Set();
     const players = [0, 1, 2, 3].map((i) => {
       let c; do { c = rint(0, CHARS.length - 1); } while (used.has(c)); used.add(c);
-      const look = { hat: Math.random() < 0.6 ? pick(HATS).id : 'none', acc: Math.random() < 0.5 ? pick(ACCESSORIES).id : 'none' };
-      return { char: c, ctrl: 'cpu', level: 'hard', color: PLAYER_COLORS[i], label: `CPU${i + 1}`, look };
+      const look = {
+        hat: Math.random() < 0.6 ? pick(HATS).id : 'none', face: Math.random() < 0.4 ? pick(FACES).id : 'none',
+        back: Math.random() < 0.35 ? pick(BACKS).id : 'none', color: Math.random() < 0.3 ? pick(BODY_COLORS).id : 'classic',
+      };
+      return { char: c, weapon: pick(ARSENALS[CHARS[c].id]).id, ctrl: 'cpu', level: 'hard', color: PLAYER_COLORS[i], label: `CPU${i + 1}`, look };
     });
-    game.start({ players, stage: pick(STAGES), stocks: 2, items: true, demo: true });
+    game.start({ players, stage: pick(STAGES.filter((st) => st.players[1] >= 4)), stocks: 2, items: true, demo: true });
     Sfx.enabled = false;
     mode = 'menu'; game.paused = false;
   }

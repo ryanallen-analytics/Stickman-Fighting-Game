@@ -168,3 +168,11 @@ kbd { font: 600 0.85em var(--ui); background: var(--card); border: 1.5px solid v
 .chip { border: 2px solid var(--ink); border-radius: 999px; background: var(--card); padding: 2px 12px; font-weight: 700; font-size: 15px; cursor: pointer; }
 .chip:hover { background: var(--paper); }
 .chip.on { background: var(--ink); color: #fff; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--ink); background: var(--sw); cursor: pointer; padding: 0; }
+.swatch.classic { background: conic-gradient(#f1c49b 0 25%, #3e6db5 0 50%, #f6f5ef 0 75%, #2c3e73 0); }
+.swatch.on { box-shadow: 0 0 0 3px var(--card), 0 0 0 5.5px var(--ink); }
+.swatch:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.wpn-desc { margin: 0; font-size: 15px; line-height: 1.35; color: var(--ink-soft); min-height: 1.35em; }
+.stage-note { margin: -2px 0 0; font-size: 15px; line-height: 1.35; color: var(--ink-soft); }
+.d-arsenal { margin: 0; font-weight: 600; line-height: 1.35; }
