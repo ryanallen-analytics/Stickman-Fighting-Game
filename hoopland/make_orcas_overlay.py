@@ -1,5 +1,6 @@
 """Generate the Anchorage Orcas court overlay for Hoop Land (1024x512 transparent PNG)."""
 from PIL import Image, ImageDraw
+from court_template import fit_to_court
 import math, os, random
 
 W, H = 1024, 512
@@ -85,5 +86,5 @@ for x in range(LEFT + 1, RIGHT):
 for x in range(LEFT + 8, RIGHT - 8, 23):           # little whitecaps
     d.line([(x, BOTTOM - 3), (x + 3, BOTTOM - 3)], fill=FOAM + (160,))
 
-img.resize((W, H), Image.NEAREST).save(os.path.join(HERE, "anchorage-orcas-overlay.png"))
+fit_to_court(img.resize((W, H), Image.NEAREST)).save(os.path.join(HERE, "anchorage-orcas-overlay.png"))
 print("saved")

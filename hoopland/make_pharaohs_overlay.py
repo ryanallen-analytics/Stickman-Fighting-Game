@@ -1,5 +1,6 @@
 """Generate the Memphis Pharaohs court overlay for Hoop Land (1024x512 transparent PNG)."""
 from PIL import Image, ImageDraw, ImageFilter
+from court_template import fit_to_court
 import os
 
 W, H = 1024, 512
@@ -131,5 +132,5 @@ d.polygon([(apex[0] - 4, BASE - PH + 6), apex, (apex[0] + 4, BASE - PH + 6)], fi
 d.line([(PX0, BASE), apex, (PX1, BASE)], fill=NAVY + (240,), width=1)
 d.line([(132, BASE), (380, BASE)], fill=NAVY + (230,))
 
-img.resize((W, H), Image.NEAREST).save(os.path.join(HERE, "memphis-pharaohs-overlay.png"))
+fit_to_court(img.resize((W, H), Image.NEAREST)).save(os.path.join(HERE, "memphis-pharaohs-overlay.png"))
 print("saved")

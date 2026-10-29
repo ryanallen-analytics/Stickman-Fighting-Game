@@ -1,5 +1,6 @@
 """Generate the Albuquerque Diablos court overlay for Hoop Land (1024x512 transparent PNG)."""
 from PIL import Image, ImageDraw
+from court_template import fit_to_court
 import math, os, random
 
 W, H = 1024, 512
@@ -108,5 +109,5 @@ for x in range(146, 367):
         if hh > 0:
             d.line([(x, ridge_top - hh), (x, ridge_top - 1)], fill=col + (a - 40,))
 
-img.resize((W, H), Image.NEAREST).save(os.path.join(HERE, "albuquerque-diablos-overlay.png"))
+fit_to_court(img.resize((W, H), Image.NEAREST)).save(os.path.join(HERE, "albuquerque-diablos-overlay.png"))
 print("saved")

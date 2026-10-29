@@ -1,5 +1,6 @@
 """Generate the Nashville Sound court overlay for Hoop Land (1024x512 transparent PNG)."""
 from PIL import Image, ImageDraw
+from court_template import fit_to_court
 import math, os
 
 W, H = 1024, 512
@@ -107,5 +108,5 @@ for i, x in enumerate(range(KX0, KX1 - white + 1, white)):
         d.rectangle([x + white - 2, ky, x + white + 2, ky + 7], fill=INK + (240,))
 d.line([(KX0, ky), (KX0 + ((KX1 - KX0) // white) * white, ky)], fill=TEAL + (230,), width=1)
 
-img.resize((W, H), Image.NEAREST).save(os.path.join(HERE, "nashville-sound-overlay.png"))
+fit_to_court(img.resize((W, H), Image.NEAREST)).save(os.path.join(HERE, "nashville-sound-overlay.png"))
 print("saved")

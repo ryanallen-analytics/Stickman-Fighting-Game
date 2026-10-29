@@ -1,5 +1,6 @@
 """Generate the Louisville Mustangs court overlay for Hoop Land (1024x512 transparent PNG)."""
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from court_template import fit_to_court, to_court
 import os
 
 W, H = 1024, 512
@@ -70,38 +71,41 @@ skyline.paste(INK + (200,), (0, 0), edge)
 fill = Image.new("RGBA", (LW, LH), GOLD + (55,))       # faint gold wash inside buildings
 skyline = Image.alpha_composite(Image.composite(fill, skyline, mask), detail)
 ImageDraw.Draw(skyline).line([(146, BASE + 1), (366, BASE + 1)], fill=INK + (200,))
-layer = skyline.resize((W, H), Image.NEAREST)
+layer = fit_to_court(skyline.resize((W, H), Image.NEAREST))
 
-# ---------- sponsor decals (full-res, no anti-aliasing for a pixel look) ----------
+# ---------- sponsor decals (drawn after fitting so the text stays crisp) ----------
+# Positions are laid out like the rest of the drawing and mapped with to_court.
 dr = ImageDraw.Draw(layer)
 dr.fontmode = "1"
 
 def outlined(xy, text, font, fill, anchor="mm"):
     x, y = xy
-    for dx in (-2, 0, 2):
-        for dy in (-2, 0, 2):
+    x, y = to_court(x, y)
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
             if dx or dy:
                 dr.text((x + dx, y + dy), text, font=font, fill=BLACK + (230,), anchor=anchor)
     dr.text((x, y), text, font=font, fill=fill, anchor=anchor)
 
-big, small = ImageFont.truetype(BOLD, 16), ImageFont.truetype(BOLD, 12)
+big, small = ImageFont.truetype(BOLD, 13), ImageFont.truetype(BOLD, 10)
 
 def bolt(cx, cy, s, fill):
     pts = [(0, -6), (-3, 1), (0, 1), (-2, 7), (4, -1), (1, -1), (3, -6)]
+    cx, cy = to_court(cx, cy)
     pts = [(cx + px * s, cy + py * s) for px, py in pts]
-    dr.polygon([(x + 2, y + 2) for x, y in pts], fill=BLACK + (230,))
+    dr.polygon([(x + 1, y + 1) for x, y in pts], fill=BLACK + (230,))
     dr.polygon(pts, fill=fill)
 
 # Sponsor 1 (top-left, in front of the bench): Bluegrass Bolt Energy
 cx, cy = 432, 122
-dr.rounded_rectangle([362, 100, 502, 146], 6, fill=(30, 70, 150, 185), outline=BLACK + (230,), width=3)
-bolt(376, cy, 1.9, GOLD + (255,))
+dr.rounded_rectangle([*to_court(362, 100), *to_court(502, 146)], 5, fill=(30, 70, 150, 185), outline=BLACK + (230,), width=2)
+bolt(376, cy, 1.6, GOLD + (255,))
 outlined((446, cy - 7), "BLUEGRASS", big, (255, 255, 255, 255))
 outlined((446, cy + 11), "BOLT  ENERGY", small, GOLD + (255,))
 
 # Sponsor 2 (top-right): Derby Dash Courier
 cx = 592
-dr.rounded_rectangle([522, 100, 662, 146], 6, fill=(150, 24, 36, 185), outline=BLACK + (230,), width=3)
+dr.rounded_rectangle([*to_court(522, 100), *to_court(662, 146)], 5, fill=(150, 24, 36, 185), outline=BLACK + (230,), width=2)
 outlined((592, cy - 7), "DERBY DASH", big, (255, 255, 255, 255))
 outlined((592, cy + 11), "COURIER CO.", small, GOLD + (255,))
 
