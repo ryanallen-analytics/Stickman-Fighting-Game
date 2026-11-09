@@ -10,8 +10,8 @@ import math, os
 
 W, H = 1024, 512
 LW, LH = W // 2, H // 2  # pixel-art layer, upscaled 2x
-LIGHT_FACE = (206, 166, 122)
-DARK_FACE = (166, 124, 84)
+LIGHT_FACE = (210, 170, 126)
+DARK_FACE = (140, 100, 64)
 BLACK = (20, 18, 22)
 RED = (200, 24, 40)
 GOLD = (240, 176, 40)
@@ -27,23 +27,38 @@ SANS_LIGHT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 wings = Image.new("RGBA", (LW, LH), (0, 0, 0, 0))
 wd = ImageDraw.Draw(wings)
 
-# left wing outline relative to center: leading edge up to the tip, then the feathered trailing edge
-LEADING = ((-20, -14), (-30, -34), (-44, -48), (-58, -56), (-68, -58))
-TIPS = ((-70, -50), (-68, -38), (-64, -26), (-58, -14), (-50, -6), (-42, 0), (-33, 4), (-24, 6))
-NOTCHES = ((-62, -44), (-60, -32), (-56, -22), (-50, -13), (-43, -6), (-35, -1), (-27, 1), (-20, 2))
-BONE = ((-24, -16), (-34, -30), (-46, -40), (-58, -48))
+# Broad, nearly horizontal spread wings: the leading edge sweeps up to high outer tips, a tier of
+# pointed coverts runs along the top, and long primaries fan down and outward at the ends.
+# Points are for the left wing, relative to center; the right wing mirrors them.
+MID_FACE = (182, 140, 98)
+EDGE = (130, 92, 58)
+DROP = 12                                                 # sit the wings low enough to pass under the sponsor marks
+def lower(pts):
+    return tuple((x, y + DROP) for x, y in pts)
+LEADING = lower(((-20, -12), (-36, -24), (-54, -34), (-70, -42), (-86, -48)))
+TIPS = lower(((-92, -38), (-92, -26), (-88, -14), (-78, -8), (-66, -4), (-54, -2), (-42, 0), (-30, 2)))
+NOTCHES = lower(((-84, -40), (-83, -28), (-80, -18), (-72, -12), (-60, -9), (-49, -6), (-37, -4), (-24, -2)))
+COVERT_TIPS = lower(((-76, -38), (-64, -30), (-52, -22), (-40, -16), (-28, -10)))
+COVERT_NOTCHES = lower(((-78, -45), (-64, -38), (-50, -30), (-36, -22), (-22, -15)))
 for side in (-1, 1):
     P = lambda pts: [(CX - side * x, CY + y) for x, y in pts]       # side -1 is the left wing, 1 mirrors it
     outline = list(LEADING)
     for tip, notch in zip(TIPS, NOTCHES):
         outline += [tip, notch]
     wd.polygon(P(outline), fill=LIGHT_FACE + (255,))
-    # coverts: a darker band along the leading edge with a scalloped lower edge
-    wd.polygon(P(list(LEADING) + [(-62, -48), (-52, -40), (-40, -30), (-30, -18), (-22, -6)]), fill=DARK_FACE + (255,))
-    for (nx, ny), k in zip(NOTCHES[:-1], range(len(NOTCHES) - 1)):   # feather separations
-        bx, by = BONE[min(3, (len(NOTCHES) - 2 - k) // 2)]
-        wd.line(P([(nx, ny), (bx + (nx - bx) * 0.35, by + (ny - by) * 0.35)]), fill=DARK_FACE + (255,))
-alpha = wings.getchannel("A").point(lambda v: 105 if v else 0)
+    # covert tier: pointed feathers hanging off the leading edge
+    coverts = list(LEADING)[::-1]
+    for notch, tip in zip(COVERT_NOTCHES, COVERT_TIPS):
+        coverts += [notch, tip]
+    wd.polygon(P(coverts + [LEADING[0]]), fill=MID_FACE + (255,))
+    # feather separations: from each trailing notch up toward the coverts
+    for (nx, ny), k in zip(NOTCHES[:-1], range(len(NOTCHES) - 1)):
+        cx_, cy_ = COVERT_TIPS[min(len(COVERT_TIPS) - 1, k * len(COVERT_TIPS) // (len(NOTCHES) - 1))]
+        wd.line(P([(nx, ny), (nx + (cx_ - nx) * 0.75, ny + (cy_ - ny) * 0.75)]), fill=DARK_FACE + (255,))
+    for (nx, ny), (tx, ty) in zip(COVERT_NOTCHES, COVERT_TIPS):      # covert separations
+        wd.line(P([(nx, ny), (tx + (nx - tx) * 0.2, ty + (ny - ty) * 0.2)]), fill=DARK_FACE + (255,))
+    wd.line(P(list(LEADING)), fill=EDGE + (255,), width=3)            # darker leading-edge stroke
+alpha = wings.getchannel("A").point(lambda v: 125 if v else 0)
 wings.putalpha(alpha)
 img = wings.resize((W, H), Image.NEAREST)
 
